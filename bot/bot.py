@@ -25,7 +25,7 @@ def main():
             admins = [line for line in f]
 
     bot_handler = handler.Handler(token, admins)
-
+    bot_handler.run()
 
 if __name__ == "__main__":
     try:
