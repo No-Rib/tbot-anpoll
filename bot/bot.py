@@ -17,12 +17,12 @@ def main():
 
     args = parser.parse_args()
 
-    token = open(args.token, "r").readline()
+    token = open(args.token, "r").readline().strip()
 
     admins = []
     if args.admins:
         with open(args.admins, "r") as f:
-            admins = [line for line in f]
+            admins = [line.strip() for line in f]
 
     bot_handler = handler.Handler(token, admins)
     bot_handler.run()
