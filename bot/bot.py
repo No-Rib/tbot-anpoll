@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import argparse
-import os
 import sys
 
 import handler
@@ -13,12 +12,19 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--token", help="path to Telegram API Token", required=True)
+    parser.add_argument(
+        "--admins", help="path to list of admin users")
 
     args = parser.parse_args()
 
     token = open(args.token, "r").readline()
 
-    bot_handler = handler.Handler(token)
+    admins = []
+    if args.admins:
+        with open(args.admins, "r") as f:
+            admins = [line for line in f]
+
+    bot_handler = handler.Handler(token, admins)
 
 
 if __name__ == "__main__":
