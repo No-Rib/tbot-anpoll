@@ -25,6 +25,15 @@ _STATE_STARTED = "started"
 _STATE_STOPPED = "stopped"
 """Possible Handler states."""
 
+_USERNAME_REGEX = re.compile("^@[a-z0-9_]{5,}$")
+"""Valid Telegram username pattern."""
+
+
+def _is_username(username):
+    """Checks if given string is valid Telegram username."""
+    # TODO Make check more elaborate?
+    return bool(_USERNAME_REGEX.match(username))
+
 
 class BotError(Exception):
     def __init__(self, msg):
@@ -58,6 +67,13 @@ class ExistingLock(BotAPIError):
         )
 
 
+class InvalidUsername(BotAPIError):
+    def __init__(self, username):
+        super(InvalidUsername, self).__init__(
+            "Username '{0}' is invalid.".format(username)
+        )
+
+
 class UnknownAction(BotAPIError):
     def __init__(self):
         super(UnknownAction, self).__init__("Unknown action.")
@@ -66,6 +82,16 @@ class UnknownAction(BotAPIError):
 def _format_name_list(names):
     """Returns formatted for printing list of names."""
     return "\n".join(sorted(names)) if names else "Empty!"
+
+
+def _tokenize_usernames(payload):
+    """Transforms string with usernames to set of usernames."""
+
+    usernames = payload.split("\n")
+    for username in usernames:
+        if not _is_username(username):
+            raise InvalidUsername(username)
+    return set(usernames)
 
 
 class Handler(object):
@@ -126,6 +152,7 @@ class Handler(object):
 
         body = msg["text"]
         chat_id = msg["chat"]["id"]
+        username = msg["chat"]["username"]
 
         try:
             if _is_action(body):
@@ -142,7 +169,10 @@ class Handler(object):
                 else:
                     raise UnknownAction()
             else:
-                pass
+                lock = self.locks.get(username)
+                if lock:
+                    if lock == _ACTION_ADD_RESPONDENTS:
+                        self.commit_add_respondents(chat_id, msg)
         except BotAPIError as e:
             self.bot.sendMessage(chat_id, e.botmsg)
             raise e
@@ -188,6 +218,12 @@ class Handler(object):
         """Handles 'add_respondents' action."""
 
         self.send_message(chat_id, "Enter list of respondents (one per line):")
+
+    def commit_add_respondents(self, chat_id, msg):
+        """Commits 'add_respondents' payload."""
+
+        respondents = _tokenize_usernames(msg["text"])
+        self.respondents.update(respondents)
 
     def run(self):
         """Initializes handler loop."""
