@@ -4,6 +4,7 @@ from functools import wraps
 
 import telepot
 
+_ACTION_LIST_ADMINS = "/list_admins"
 _ACTION_LIST_RESPONDENTS = "/list_respondents"
 _ACTION_START = "/start"
 _ACTION_STOP = "/stop"
@@ -45,6 +46,7 @@ class Handler(object):
 
         self.admins = admins or []
         self.bot = None
+        self.locks = set()
         self.loop = None
         self.respondents = set()
         self.state = _STATE_STOPPED
@@ -113,6 +115,13 @@ class Handler(object):
         self.state = _STATE_STOPPED
         self.send_message(chat_id, "Handler has been stopped.")
         print "Handler has been stopped."
+
+    @_run_when_in_state(_STATE_STARTED)
+    @_run_when_initialized
+    def handle_list_admins(self, chat_id):
+        """Handles 'list-admins' action."""
+
+        self.send_message(chat_id, list(self.admins))
 
     @_run_when_in_state(_STATE_STARTED)
     @_run_when_initialized
