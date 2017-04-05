@@ -15,7 +15,14 @@ _STATE_STOPPED = "stopped"
 """Possible Handler states."""
 
 
-class InvalidHandlerState(Exception):
+class BotError(Exception):
+    def __init__(self, msg, botmsg=None):
+        super(BotError, self).__init__(self, msg)
+
+        self.botmsg = botmsg if botmsg else msg
+
+
+class InvalidHandlerState(BotError):
     def __init__(self, state):
         super(InvalidHandlerState, self).__init__(
             "This action should be run in '{0}' state".format(state)
@@ -48,11 +55,18 @@ class Handler(object):
         """Tbot message handler."""
 
         body = msg["text"]
+        chat_id = msg["chat"]["id"]
 
-        if body == _ACTION_START:
-            self.handle_start_action()
-        elif body == _ACTION_STOP:
-            self.handle_stop_action()
+        try:
+            if body == _ACTION_START:
+                self.handle_start_action()
+            elif body == _ACTION_STOP:
+                self.handle_stop_action()
+        except BotError as e:
+            self.bot.sendMessage(chat_id, e.botmsg)
+            raise e
+        except Exception as e:
+            raise e
 
     @_run_when_in_state(_STATE_STOPPED)
     def handle_start_action(self):
