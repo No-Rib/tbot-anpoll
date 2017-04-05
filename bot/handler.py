@@ -4,9 +4,7 @@ from functools import wraps
 
 import telepot
 
-from utils import decorator
-
-_ACTION_LIST_RESPONDENTS = "/list-respondents"
+_ACTION_LIST_RESPONDENTS = "/list_respondents"
 _ACTION_START = "/start"
 _ACTION_STOP = "/stop"
 """Supported actons."""
@@ -18,17 +16,17 @@ _STATE_STOPPED = "stopped"
 
 class BotError(Exception):
     def __init__(self, msg):
-        super(BotError, self).__init__(self, msg)
+        super(BotError, self).__init__(msg)
 
 
 class BotNotInitialized(BotError):
     def __init__(self, msg="Bot is not initialized."):
-        super(BotNotInitialized, self).__init__(self, msg)
+        super(BotNotInitialized, self).__init__(msg)
 
 
 class BotAPIError(BotError):
     def __init__(self, msg, botmsg=None):
-        super(BotAPIError, self).__init__(self, msg)
+        super(BotAPIError, self).__init__(msg)
 
         self.botmsg = botmsg if botmsg else msg
 
@@ -90,6 +88,8 @@ class Handler(object):
                 self.handle_start_action(chat_id)
             elif body == _ACTION_STOP:
                 self.handle_stop_action(chat_id)
+            elif body == _ACTION_LIST_RESPONDENTS:
+                self.handle_list_respondents(chat_id)
         except BotAPIError as e:
             self.bot.sendMessage(chat_id, e.botmsg)
             raise e
@@ -98,20 +98,28 @@ class Handler(object):
 
     @_run_when_in_state(_STATE_STOPPED)
     @_run_when_initialized
-    def handle_start_action(self, chat_id)
-        """Handles '/start' action """
+    def handle_start_action(self, chat_id):
+        """Handles '/start' action."""
 
         self.state = _STATE_STARTED
         self.send_message(chat_id, "Handler has been started.")
         print "Handler has been started."
 
     @_run_when_in_state(_STATE_STARTED)
+    @_run_when_initialized
     def handle_stop_action(self, chat_id):
         """Handles '/stop' action """
 
         self.state = _STATE_STOPPED
         self.send_message(chat_id, "Handler has been stopped.")
         print "Handler has been stopped."
+
+    @_run_when_in_state(_STATE_STARTED)
+    @_run_when_initialized
+    def handle_list_respondents(self, chat_id):
+        """Handles 'list-respondents' action."""
+
+        self.send_message(chat_id, list(self.respondents))
 
     def run(self):
         """Initializes handler loop."""
