@@ -6,6 +6,7 @@ import telepot
 
 _ACTION_LIST_ADMINS = "/list_admins"
 _ACTION_LIST_RESPONDENTS = "/list_respondents"
+_ACTION_ADD_RESPONDENTS = "/add_respondents"
 _ACTION_START = "/start"
 _ACTION_STOP = "/stop"
 """Supported actons."""
@@ -39,6 +40,14 @@ class InvalidHandlerState(BotAPIError):
         )
 
 
+class ExistingLock(BotAPIError):
+    def __init__(self, action):
+        super(ExistingLock, self).__init__(
+            "Cannot perform the action. '{0}'' is expecting input.".format(
+                action)
+        )
+
+
 def _format_name_list(names):
     """Returns formatted for printing list of names."""
     return "\n".join(sorted(names)) if names else "Empty!"
@@ -51,7 +60,7 @@ class Handler(object):
 
         self.admins = set(admins or [])
         self.bot = None
-        self.locks = set()
+        self.locks = {}
         self.loop = None
         self.respondents = set()
         self.state = _STATE_STOPPED
@@ -78,6 +87,19 @@ class Handler(object):
             return inner
         return outer
 
+    def _lock_user(func):
+        """Adds lock for user."""
+        @wraps(func)
+        def wrapper(self, chat_id, msg, *args, **kwargs):
+            username = msg["chat"]["username"]
+            action = msg["text"]
+            if username in self.locks:
+                raise ExistingLock(self.locks.get(username))
+            else:
+                self.locks[username] = action
+            return func(self, chat_id, msg, *args, **kwargs)
+        return wrapper
+
     @_run_when_initialized
     def send_message(self, chat_id, msg):
         """Sends message to specific chat."""
@@ -99,6 +121,8 @@ class Handler(object):
                 self.handle_list_admins(chat_id)
             elif body == _ACTION_LIST_RESPONDENTS:
                 self.handle_list_respondents(chat_id)
+            elif body == _ACTION_ADD_RESPONDENTS:
+                self.handle_add_respondents(chat_id, msg)
         except BotAPIError as e:
             self.bot.sendMessage(chat_id, e.botmsg)
             raise e
@@ -126,16 +150,24 @@ class Handler(object):
     @_run_when_in_state(_STATE_STARTED)
     @_run_when_initialized
     def handle_list_admins(self, chat_id):
-        """Handles 'list-admins' action."""
+        """Handles 'list_admins' action."""
 
         self.send_message(chat_id, _format_name_list(self.admins))
 
     @_run_when_in_state(_STATE_STARTED)
     @_run_when_initialized
     def handle_list_respondents(self, chat_id):
-        """Handles 'list-respondents' action."""
+        """Handles 'list_respondents' action."""
 
         self.send_message(chat_id, _format_name_list(self.respondents))
+
+    @_lock_user
+    @_run_when_in_state(_STATE_STARTED)
+    @_run_when_initialized
+    def handle_add_respondents(self, chat_id, msg):
+        """Handles 'add_respondents' action."""
+
+        self.send_message(chat_id, "Enter list of respondents (one per line):")
 
     def run(self):
         """Initializes handler loop."""
