@@ -39,12 +39,17 @@ class InvalidHandlerState(BotAPIError):
         )
 
 
+def _format_name_list(names):
+    """Returns formatted for printing list of names."""
+    return "\n".join(sorted(names)) if names else "Empty!"
+
+
 class Handler(object):
     """AnPoll Tbot handler class."""
 
     def __init__(self, token, admins=None):
 
-        self.admins = admins or []
+        self.admins = set(admins or [])
         self.bot = None
         self.locks = set()
         self.loop = None
@@ -90,6 +95,8 @@ class Handler(object):
                 self.handle_start_action(chat_id)
             elif body == _ACTION_STOP:
                 self.handle_stop_action(chat_id)
+            elif body == _ACTION_LIST_ADMINS:
+                self.handle_list_admins(chat_id)
             elif body == _ACTION_LIST_RESPONDENTS:
                 self.handle_list_respondents(chat_id)
         except BotAPIError as e:
@@ -121,14 +128,14 @@ class Handler(object):
     def handle_list_admins(self, chat_id):
         """Handles 'list-admins' action."""
 
-        self.send_message(chat_id, list(self.admins))
+        self.send_message(chat_id, _format_name_list(self.admins))
 
     @_run_when_in_state(_STATE_STARTED)
     @_run_when_initialized
     def handle_list_respondents(self, chat_id):
         """Handles 'list-respondents' action."""
 
-        self.send_message(chat_id, list(self.respondents))
+        self.send_message(chat_id, _format_name_list(self.respondents))
 
     def run(self):
         """Initializes handler loop."""
