@@ -13,7 +13,7 @@ def main():
     parser.add_argument(
         "--token", help="path to Telegram API Token", required=True)
     parser.add_argument(
-        "--admins", help="path to list of admin users")
+        "--admins", help="path to list of admin users", required=True)
 
     args = parser.parse_args()
 
@@ -23,6 +23,9 @@ def main():
     if args.admins:
         with open(args.admins, "r") as f:
             admins = [line.strip() for line in f]
+
+    if not admins:
+        raise Exception("Admins list should not be empty.")
 
     bot_handler = handler.Handler(token, admins)
     bot_handler.run()
