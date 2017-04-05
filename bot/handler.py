@@ -6,6 +6,7 @@ import telepot
 
 from utils import decorator
 
+_ACTION_LIST_RESPONDENTS = "/list-respondents"
 _ACTION_START = "/start"
 _ACTION_STOP = "/stop"
 """Supported actons."""
@@ -16,13 +17,23 @@ _STATE_STOPPED = "stopped"
 
 
 class BotError(Exception):
-    def __init__(self, msg, botmsg=None):
+    def __init__(self, msg):
         super(BotError, self).__init__(self, msg)
+
+
+class BotNotInitialized(BotError):
+    def __init__(self, msg="Bot is not initialized."):
+        super(BotNotInitialized, self).__init__(self, msg)
+
+
+class BotAPIError(BotError):
+    def __init__(self, msg, botmsg=None):
+        super(BotAPIError, self).__init__(self, msg)
 
         self.botmsg = botmsg if botmsg else msg
 
 
-class InvalidHandlerState(BotError):
+class InvalidHandlerState(BotAPIError):
     def __init__(self, state):
         super(InvalidHandlerState, self).__init__(
             "This action should be run in '{0}' state".format(state)
@@ -41,6 +52,16 @@ class Handler(object):
         self.state = _STATE_STOPPED
         self.token = token
 
+    def _run_when_initialized(func):
+        """Raises exception if action is run with bot not being initialized."""
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            if not self.bot:
+                raise BotNotInitialized()
+            else:
+                return func(self, *args, **kwargs)
+        return wrapper
+
     def _run_when_in_state(state):
         def outer(func):
             @wraps(func)
@@ -51,6 +72,12 @@ class Handler(object):
                     return func(self, *args, **kwargs)
             return inner
         return outer
+
+    @_run_when_initialized
+    def send_message(self, chat_id, msg):
+        """Sends message to specific chat."""
+
+        self.bot.sendMessage(chat_id, msg)
 
     def handler(self, msg):
         """Tbot message handler."""
@@ -63,18 +90,19 @@ class Handler(object):
                 self.handle_start_action(chat_id)
             elif body == _ACTION_STOP:
                 self.handle_stop_action(chat_id)
-        except BotError as e:
+        except BotAPIError as e:
             self.bot.sendMessage(chat_id, e.botmsg)
             raise e
         except Exception as e:
             raise e
 
     @_run_when_in_state(_STATE_STOPPED)
+    @_run_when_initialized
     def handle_start_action(self, chat_id)
         """Handles '/start' action """
 
         self.state = _STATE_STARTED
-        self.bot.sendMessage(chat_id, "Handler has been started.")
+        self.send_message(chat_id, "Handler has been started.")
         print "Handler has been started."
 
     @_run_when_in_state(_STATE_STARTED)
@@ -82,7 +110,7 @@ class Handler(object):
         """Handles '/stop' action """
 
         self.state = _STATE_STOPPED
-        self.bot.sendMessage(chat_id, "Handler has been stopped.")
+        self.send_message(chat_id, "Handler has been stopped.")
         print "Handler has been stopped."
 
     def run(self):
