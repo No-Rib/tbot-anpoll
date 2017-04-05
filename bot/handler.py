@@ -37,6 +37,7 @@ class Handler(object):
         self.admins = admins or []
         self.bot = None
         self.loop = None
+        self.respondents = set()
         self.state = _STATE_STOPPED
         self.token = token
 
@@ -59,9 +60,9 @@ class Handler(object):
 
         try:
             if body == _ACTION_START:
-                self.handle_start_action()
+                self.handle_start_action(chat_id)
             elif body == _ACTION_STOP:
-                self.handle_stop_action()
+                self.handle_stop_action(chat_id)
         except BotError as e:
             self.bot.sendMessage(chat_id, e.botmsg)
             raise e
@@ -69,17 +70,19 @@ class Handler(object):
             raise e
 
     @_run_when_in_state(_STATE_STOPPED)
-    def handle_start_action(self):
+    def handle_start_action(self, chat_id)
         """Handles '/start' action """
 
         self.state = _STATE_STARTED
+        self.bot.sendMessage(chat_id, "Handler has been started.")
         print "Handler has been started."
 
     @_run_when_in_state(_STATE_STARTED)
-    def handle_stop_action(self):
+    def handle_stop_action(self, chat_id):
         """Handles '/stop' action """
 
         self.state = _STATE_STOPPED
+        self.bot.sendMessage(chat_id, "Handler has been stopped.")
         print "Handler has been stopped."
 
     def run(self):
