@@ -1,6 +1,7 @@
 """Provides Handler class."""
 
 from functools import wraps
+import re
 
 import telepot
 
@@ -10,6 +11,15 @@ _ACTION_ADD_RESPONDENTS = "/add_respondents"
 _ACTION_START = "/start"
 _ACTION_STOP = "/stop"
 """Supported actons."""
+
+_ACTION_REGEX = re.compile("^/\w+")
+"""Valid action pattern."""
+
+
+def _is_action(text):
+    """Checks if text given is Telegram bot action"""
+    return bool(_ACTION_REGEX.match(text))
+
 
 _STATE_STARTED = "started"
 _STATE_STOPPED = "stopped"
@@ -46,6 +56,11 @@ class ExistingLock(BotAPIError):
             "Cannot perform the action. '{0}'' is expecting input.".format(
                 action)
         )
+
+
+class UnknownAction(BotAPIError):
+    def __init__(self):
+        super(UnknownAction, self).__init__("Unknown action.")
 
 
 def _format_name_list(names):
@@ -113,16 +128,21 @@ class Handler(object):
         chat_id = msg["chat"]["id"]
 
         try:
-            if body == _ACTION_START:
-                self.handle_start_action(chat_id)
-            elif body == _ACTION_STOP:
-                self.handle_stop_action(chat_id)
-            elif body == _ACTION_LIST_ADMINS:
-                self.handle_list_admins(chat_id)
-            elif body == _ACTION_LIST_RESPONDENTS:
-                self.handle_list_respondents(chat_id)
-            elif body == _ACTION_ADD_RESPONDENTS:
-                self.handle_add_respondents(chat_id, msg)
+            if _is_action(body):
+                if body == _ACTION_START:
+                    self.handle_start_action(chat_id)
+                elif body == _ACTION_STOP:
+                    self.handle_stop_action(chat_id)
+                elif body == _ACTION_LIST_ADMINS:
+                    self.handle_list_admins(chat_id)
+                elif body == _ACTION_LIST_RESPONDENTS:
+                    self.handle_list_respondents(chat_id)
+                elif body == _ACTION_ADD_RESPONDENTS:
+                    self.handle_add_respondents(chat_id, msg)
+                else:
+                    raise UnknownAction()
+            else:
+                pass
         except BotAPIError as e:
             self.bot.sendMessage(chat_id, e.botmsg)
             raise e
