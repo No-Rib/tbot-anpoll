@@ -80,6 +80,13 @@ class UnknownAction(BotAPIError):
         super(UnknownAction, self).__init__("Unknown action.")
 
 
+class NotAnAdmin(BotAPIError):
+    def __init__(self):
+        super(NotAnAdmin, self).__init__(
+            "Only admins are allowed to perform this action"
+        )
+
+
 def _format_name_list(names):
     """Returns formatted for printing list of names."""
     return "\n".join(sorted(names)) if names else "Empty!"
@@ -128,6 +135,15 @@ class Handler(object):
                     return func(self, *args, **kwargs)
             return inner
         return outer
+
+    def _run_admin_when_admin(func):
+        @wraps(func)
+        def wrapper(self, chat_id, msg, *args, **kwargs):
+            if msg["chat"]["username"] not in self.admins:
+                raise NotAnAdmin()
+            else:
+                return func(self, chat_id, msg, *args, **kwargs)
+        return wrapper
 
     def _lock_user(func):
         """Adds lock for user."""
@@ -212,6 +228,7 @@ class Handler(object):
         self.send_message(chat_id, "Handler has been stopped.")
         print "Handler has been stopped."
 
+    @_run_admin_when_admin
     @_run_when_in_state(_STATE_STARTED)
     @_run_when_initialized
     def handle_list_admins(self, chat_id):
@@ -219,6 +236,7 @@ class Handler(object):
 
         self.send_message(chat_id, _format_name_list(self.admins))
 
+    @_run_admin_when_admin
     @_run_when_in_state(_STATE_STARTED)
     @_run_when_initialized
     def handle_list_respondents(self, chat_id):
@@ -227,6 +245,7 @@ class Handler(object):
         self.send_message(chat_id, _format_name_list(self.respondents))
 
     @_lock_user
+    @_run_admin_when_admin
     @_run_when_in_state(_STATE_STARTED)
     @_run_when_initialized
     def handle_add_admins(self, chat_id, msg):
@@ -235,6 +254,7 @@ class Handler(object):
         self.send_message(chat_id, "Enter list of admins (one per line):")
 
     @_unlock_user
+    @_run_admin_when_admin
     @_run_when_in_state(_STATE_STARTED)
     @_run_when_initialized
     def commit_add_admins(self, chat_id, msg):
@@ -244,6 +264,7 @@ class Handler(object):
         self.admins.update(admins)
 
     @_lock_user
+    @_run_admin_when_admin
     @_run_when_in_state(_STATE_STARTED)
     @_run_when_initialized
     def handle_add_respondents(self, chat_id, msg):
@@ -252,6 +273,7 @@ class Handler(object):
         self.send_message(chat_id, "Enter list of respondents (one per line):")
 
     @_unlock_user
+    @_run_admin_when_admin
     @_run_when_in_state(_STATE_STARTED)
     @_run_when_initialized
     def commit_add_respondents(self, chat_id, msg):
