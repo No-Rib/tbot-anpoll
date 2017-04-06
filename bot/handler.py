@@ -141,6 +141,15 @@ class Handler(object):
             return func(self, chat_id, msg, *args, **kwargs)
         return wrapper
 
+    def _unlock_user(func):
+        """Removes lock if func run was successful."""
+        @wraps(func)
+        def wrapper(self, chat_id, msg, *args, **kwargs):
+            result = func(self, chat_id, msg, *args, **kwargs)
+            self.locks.pop(msg["chat"]["username"], None)
+            return result
+        return wrapper
+
     @_run_when_initialized
     def send_message(self, chat_id, msg):
         """Sends message to specific chat."""
@@ -159,7 +168,7 @@ class Handler(object):
                 if body == _ACTION_START:
                     self.handle_start_action(chat_id)
                 elif body == _ACTION_STOP:
-                    self.handle_stop_action(chat_id)
+                    self.handle_stop_action(chat_id, msg)
                 elif body == _ACTION_LIST_ADMINS:
                     self.handle_list_admins(chat_id)
                 elif body == _ACTION_LIST_RESPONDENTS:
@@ -188,9 +197,10 @@ class Handler(object):
         self.send_message(chat_id, "Handler has been started.")
         print "Handler has been started."
 
+    @_unlock_user
     @_run_when_in_state(_STATE_STARTED)
     @_run_when_initialized
-    def handle_stop_action(self, chat_id):
+    def handle_stop_action(self, chat_id, msg):
         """Handles '/stop' action """
 
         self.state = _STATE_STOPPED
@@ -219,6 +229,9 @@ class Handler(object):
 
         self.send_message(chat_id, "Enter list of respondents (one per line):")
 
+    @_unlock_user
+    @_run_when_in_state(_STATE_STARTED)
+    @_run_when_initialized
     def commit_add_respondents(self, chat_id, msg):
         """Commits 'add_respondents' payload."""
 
