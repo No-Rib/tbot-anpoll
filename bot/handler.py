@@ -7,6 +7,7 @@ import telepot
 
 _ACTION_LIST_ADMINS = "/list_admins"
 _ACTION_LIST_RESPONDENTS = "/list_respondents"
+_ACTION_ADD_ADMINS = "/add_admins"
 _ACTION_ADD_RESPONDENTS = "/add_respondents"
 _ACTION_START = "/start"
 _ACTION_STOP = "/stop"
@@ -173,6 +174,8 @@ class Handler(object):
                     self.handle_list_admins(chat_id)
                 elif body == _ACTION_LIST_RESPONDENTS:
                     self.handle_list_respondents(chat_id)
+                elif body == _ACTION_ADD_ADMINS:
+                    self.handle_add_admins(chat_id, msg)
                 elif body == _ACTION_ADD_RESPONDENTS:
                     self.handle_add_respondents(chat_id, msg)
                 else:
@@ -180,6 +183,8 @@ class Handler(object):
             else:
                 lock = self.locks.get(username)
                 if lock:
+                    if lock == _ACTION_ADD_ADMINS:
+                        self.commit_add_admins(chat_id, msg)
                     if lock == _ACTION_ADD_RESPONDENTS:
                         self.commit_add_respondents(chat_id, msg)
         except BotAPIError as e:
@@ -220,6 +225,23 @@ class Handler(object):
         """Handles 'list_respondents' action."""
 
         self.send_message(chat_id, _format_name_list(self.respondents))
+
+    @_lock_user
+    @_run_when_in_state(_STATE_STARTED)
+    @_run_when_initialized
+    def handle_add_admins(self, chat_id, msg):
+        """Handles 'add_admins' action."""
+
+        self.send_message(chat_id, "Enter list of admins (one per line):")
+
+    @_unlock_user
+    @_run_when_in_state(_STATE_STARTED)
+    @_run_when_initialized
+    def commit_add_admins(self, chat_id, msg):
+        """Commits 'add_admins' payload."""
+
+        admins = _tokenize_usernames(msg["text"])
+        self.admins.update(admins)
 
     @_lock_user
     @_run_when_in_state(_STATE_STARTED)
