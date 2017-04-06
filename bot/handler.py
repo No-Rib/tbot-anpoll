@@ -8,7 +8,9 @@ import telepot
 _ACTION_LIST_ADMINS = "/list_admins"
 _ACTION_LIST_RESPONDENTS = "/list_respondents"
 _ACTION_ADD_ADMINS = "/add_admins"
+_ACTION_REMOVE_ADMINS = "/remove_admins"
 _ACTION_ADD_RESPONDENTS = "/add_respondents"
+_ACTION_REMOVE_RESPONDENTS = "/remove_respondents"
 _ACTION_START = "/start"
 _ACTION_STOP = "/stop"
 """Supported actons."""
@@ -78,6 +80,11 @@ class InvalidUsername(BotAPIError):
 class UnknownAction(BotAPIError):
     def __init__(self):
         super(UnknownAction, self).__init__("Unknown action.")
+
+
+class SelfRemovalAttempt(BotAPIError):
+    def __init__(self):
+        super(SelfRemovalAttempt, self).__init__("You can't remove yourself.")
 
 
 def _format_name_list(names):
@@ -174,10 +181,10 @@ class Handler(object):
                     self.handle_list_admins(chat_id)
                 elif body == _ACTION_LIST_RESPONDENTS:
                     self.handle_list_respondents(chat_id)
-                elif body == _ACTION_ADD_ADMINS:
-                    self.handle_add_admins(chat_id, msg)
-                elif body == _ACTION_ADD_RESPONDENTS:
-                    self.handle_add_respondents(chat_id, msg)
+                elif body in [_ACTION_ADD_ADMINS, _ACTION_REMOVE_ADMINS]:
+                    self.handle_change_admins(chat_id, msg)
+                elif body in [_ACTION_ADD_RESPONDENTS, _ACTION_REMOVE_RESPONDENTS]:
+                    self.handle_change_respondents(chat_id, msg)
                 else:
                     raise UnknownAction()
             else:
@@ -185,8 +192,12 @@ class Handler(object):
                 if lock:
                     if lock == _ACTION_ADD_ADMINS:
                         self.commit_add_admins(chat_id, msg)
+                    if lock == _ACTION_REMOVE_ADMINS:
+                        self.commit_remove_admins(chat_id, msg)
                     if lock == _ACTION_ADD_RESPONDENTS:
                         self.commit_add_respondents(chat_id, msg)
+                    if lock == _ACTION_REMOVE_RESPONDENTS:
+                        self.commit_remove_respondents(chat_id, msg)
         except BotAPIError as e:
             self.bot.sendMessage(chat_id, e.botmsg)
             raise e
@@ -229,8 +240,8 @@ class Handler(object):
     @_lock_user
     @_run_when_in_state(_STATE_STARTED)
     @_run_when_initialized
-    def handle_add_admins(self, chat_id, msg):
-        """Handles 'add_admins' action."""
+    def handle_change_admins(self, chat_id, msg):
+        """Handles 'add_admins' and 'remove_admins' action."""
 
         self.send_message(chat_id, "Enter list of admins (one per line):")
 
@@ -243,11 +254,23 @@ class Handler(object):
         admins = _tokenize_usernames(msg["text"])
         self.admins.update(admins)
 
+    @_unlock_user
+    @_run_when_in_state(_STATE_STARTED)
+    @_run_when_initialized
+    def commit_remove_admins(self, chat_id, msg):
+        """Commits 'remove_admins' payload."""
+
+        admins = _tokenize_usernames(msg["text"])
+        if "@" + msg["chat"]["username"] in admins:
+            raise SelfRemovalAttempt()
+        else:
+            self.admins.difference_update(admins)
+
     @_lock_user
     @_run_when_in_state(_STATE_STARTED)
     @_run_when_initialized
-    def handle_add_respondents(self, chat_id, msg):
-        """Handles 'add_respondents' action."""
+    def handle_change_respondents(self, chat_id, msg):
+        """Handles 'add_respondents' and 'remove_respondents' action."""
 
         self.send_message(chat_id, "Enter list of respondents (one per line):")
 
@@ -259,6 +282,18 @@ class Handler(object):
 
         respondents = _tokenize_usernames(msg["text"])
         self.respondents.update(respondents)
+
+    @_unlock_user
+    @_run_when_in_state(_STATE_STARTED)
+    @_run_when_initialized
+    def commit_remove_respondents(self, chat_id, msg):
+        """Commits 'remove_respondents' payload."""
+
+        respondents = _tokenize_usernames(msg["text"])
+        if "@" + msg["chat"]["username"] in respondents:
+            raise SelfRemovalAttempt()
+        else:
+            self.respondents.difference_update(respondents)
 
     def run(self):
         """Initializes handler loop."""
